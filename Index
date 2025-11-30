@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="fa">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>خانه‌ی ترس مریم پشویی</title>
+
+<style>
+body { margin:0; background:#000; overflow:hidden; }
+canvas { width:100vw; height:100vh; display:block; }
+#hud {
+  position:fixed;
+  top:10px; left:10px;
+  color:white;
+  font-family:monospace;
+  font-size:18px;
+  background:rgba(0,0,0,0.5);
+  padding:12px;
+  border-radius:8px;
+}
+#buttons {
+  position:fixed;
+  bottom:20px;
+  left:50%;
+  transform:translateX(-50%);
+  display:flex;
+  gap:10px;
+}
+button {
+  padding:10px 16px;
+  font-size:16px;
+  font-family:monospace;
+  background:#600;
+  color:#fff;
+  border:none;
+  border-radius:6px;
+  cursor:pointer;
+}
+button:hover { background:#900; }
+</style>
+
+</head>
+<body>
+
+<div id="hud">
+  Time: <span id="clock">00:00</span><br>
+  Energy: <span id="energy">100%</span><br>
+  Door L: <span id="doorL">OPEN</span> | Door R: <span id="doorR">OPEN</span><br>
+  Light: <span id="light">OFF</span>
+</div>
+
+<div id="buttons">
+  <button onclick="camSwitch(0)">CAM 1</button>
+  <button onclick="camSwitch(1)">CAM 2</button>
+  <button onclick="camSwitch(2)">CAM 3</button>
+  <button onclick="camSwitch(3)">CAM 4</button>
+  <button onclick="door('L')">DOOR L</button>
+  <button onclick="door('R')">DOOR R</button>
+  <button onclick="light()">LIGHT</button>
+</div>
+
+<canvas id="c"></canvas>
+
+<script>
+const canvas = document.getElementById("c");
+const ctx = canvas.getContext("2d");
+canvas.width = 1600;
+canvas.height = 900;
+
+let cam = 0;
+let energy = 100;
+let gameOver = false;
+let doorL = false;
+let doorR = false;
+let lightOn = false;
+let hour = 0, minute = 0;
+
+const enemies = [
+  {name:"مریم پشویی", x:-300, y:200, stage:Math.random()*4+2, speed:2, img:null},
+  {name:"ترانه عظیمی", x:1800, y:200, stage:Math.random()*4+3, speed:3, img:null}
+];
+
+function clock(){
+  minute++;
+  if(minute==60){minute=0;hour++}
+  document.getElementById("clock").innerText = (hour<10?"0"+hour:hour)+":"+(minute<10?"0"+minute:minute);
+  if(hour==6){ win(); }
+}
+
+function update(){
+  if(gameOver) return;
+
+  let drain = 0.02 + (doorL?0.05:0) + (doorR?0.05:0) + (lightOn?0.08:0);
+  energy = Math.max(0, energy - drain);
+  document.getElementById("energy").innerText = Math.floor(energy) + "%";
+  ctx.globalAlpha = 1;
+
+  enemies.forEach(e=>{
+    e.stage -= 0.01 * e.speed * Math.random();
+    if(e.stage <= 1){
+      attack(e);
+      e.stage = Math.random()*4+2;
+    }
+
+    if(e.name === "مریم پشویی") e.x = 300 - e.stage*70;
+    if(e.name === "ترانه عظیمی") e.x = 1300 + e.stage*70;
+
+    renderEnemy(e);
+  });
+
+  if(energy==0 && Math.random()<0.02) lose("No power!");
+}
+
+function renderEnemy(e){
+  let scale = 1.5 - e.stage*0.2;
+  ctx.fillStyle = "#f0f";
+  ctx.fillRect(e.x, e.y, 200*scale, 300*scale);
+}
+
+function renderEnemy(e){
+  const size = Math.max(40, 110 - e.stage * 12);
+  if(e.name === "مریم پشویی"){
+    ctx.fillStyle = "#f36";
+    ctx.fillRect(50, 600, size, size*2.2);
+  }
+  if(e.name === "ترانه عظیمی"){
+    ctx.fillStyle = "#69f";
+    ctx.fillRect(1550 - size, 600, size, size*2.2);
+  }
+}
+
+function render(){
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+
+  ctx.fillStyle = cam===0?"#111":"#070711";
+  ctx.fillRect(0,0,canvas.width,canvas.height);
+
+  ctx.globalAlpha = 0.15;
+  for(let i=0;i<1200;i++){
+    ctx.fillRect(Math.random()*1600, Math.random()*900, 2, 2);
+  }
+  ctx.globalAlpha = 1;
+
+  renderEnemy(enemies[0]);
+  renderEnemy(enemies[1]);
+
+  if(lightOn){
+    ctx.globalAlpha = 0.08 + Math.random()*0.04;
+    ctx.fillStyle = "#fff";
+    ctx.fillRect(0,0,1600,900);
+    ctx.globalAlpha = 1;
+  }
+
+  if(doorL) ctx.fillStyle="#500", ctx.fillRect(0,300,50,350);
+  if(doorR) ctx.fillStyle="#005", ctx.fillRect(1550,300,50,350);
+
+  ctx.addNoise = function(){
+    ctx.globalAlpha = 0.06;
+    for(let i = 0; i < 3000; i++){
+      ctx.fillRect(Math.random()*1600, Math.random()*900, 3, 3);
+    }
+    ctx.globalAlpha = 1;
+  };
+  ctx.addNoise();
+}
+
+function camSwitch(i){
+  cam = i;
+  loseCharge(2);
+}
+function loseCharge(n){ energy = Math.max(0, energy-n); }
+
+function door(s){
+  if(s==='L') doorL=!doorL, document.getElementById("doorL").innerText=doorL?"CLOSED":"OPEN";
+  if(s==='R') doorR=!doorR, document.getElementById("doorR").innerText=doorR?"CLOSED":"OPEN";
+  loseCharge(5);
+}
+
+function light(){
+  lightOn=!lightOn;
+  document.getElementById("light").innerText = lightOn?"ON":"OFF";
+  document.getElementById("light").style.color = lightOn? "yellow":"white";
+}
+
+function attack(e){
+  if(!doorL || !doorR){
+    lose(e.name + " GOT YOU!");
+  }
+}
+
+function lose(msg){
+  ctx.fillStyle="#900";
+  document.body.innerHTML = "<h1 style='color:white;text-align:center;margin-top:40vh;font-family:monospace'>GAME OVER<br>"+msg+"</h1>";
+  gameOver = true;
+}
+
+function win(){
+  ctx.fillStyle="#090";
+  document.body.innerHTML = "<h1 style='color:white;text-align:center;margin-top:40vh;font-family:monospace'>YOU SURVIVED!</h1>";
+  gameOver = true;
+}
+
+setInterval(render,33);
+setInterval(update,33);
+setInterval(clock,1500);
+</script>
+
+</body>
+</html>
